@@ -1,0 +1,97 @@
+org: ebtrexler
+app: mrothapp
+service: mrothapp
+frameworkVersion: '3'
+
+custom:
+  usersTableName: 'users-table-${sls:stage}'
+  apptTableName: 'appt-table-${sls:stage}'
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource:
+            - Fn::GetAtt: [ UsersTable, Arn ]
+            - Fn::GetAtt: [ ApptsTable, Arn ]
+  environment:
+    USERS_TABLE: ${self:custom.usersTableName}
+    APPTS_TABLE: ${self:custom.apptTableName}
+
+functions:
+
+#user functions
+  createOrUpdateUser:
+    handler: users.createOrUpdateUser
+    events:
+      - httpApi: 
+          path: /create_or_update_user
+          method: post
+  getUser:
+    handler: users.getUser
+    events:
+      - httpApi: 
+          path: /get_user
+          method: post
+  getAllUsers:
+    handler: users.getAllUsers
+    events:
+      - httpApi: 
+          path: /get_all_users
+          method: get
+
+# appt functions
+  getAllUserAppts:
+    handler: appts.getAllUserAppts
+    events:
+      - httpApi: 
+          path: /get_all_user_appts
+          method: post
+  createAppt:
+    handler: appts.createOrUpdateAppt
+    events:
+      - httpApi: 
+          path: /create_or_update_appt
+          method: post
+  deleteAppt:
+    handler: appts.deleteAppt
+    events:
+      - httpApi: 
+          path: /delete_appt
+          method: post
+
+
+resources:
+  Resources:
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: email
+            AttributeType: S
+        KeySchema:
+          - AttributeName: email
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:custom.usersTableName}
+    ApptsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: primaryKey
+            AttributeType: S
+        KeySchema:
+          - AttributeName: primaryKey
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:custom.apptTableName}
