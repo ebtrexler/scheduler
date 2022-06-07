@@ -39,8 +39,11 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   List<User> _users = [];
   User? _currentUser;
+  bool isInitialized = false;
+  SizeConfig? sizeConfig;
 
-  List<Appointment> _appts = [];
+  List<Appointment> _ownedAppts = [];
+  List<Appointment> _invitedAppts = [];
 
   init() async {
     var userResult = await CloudSync().getAllUsers();
@@ -52,6 +55,7 @@ class _MyHomePageState extends State<MyHomePage> {
         await _getUserAppts();
       }
     }
+    isInitialized = true;
     if (mounted) setState(() {});
   }
 
@@ -72,12 +76,23 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
       body: Column(children: [
-        _getUserChooser(),
-        Expanded(
-          child: ListView(
-            children: _getApptWidgets(),
+        const Padding(
+          // June 5th
+          padding: EdgeInsets.all(8.0),
+          child: Image(
+            image: AssetImage('assets/logo.png'),
+            fit: BoxFit.scaleDown,
           ),
-        )
+        ),
+        _getUserChooser(),
+        isInitialized
+            ? Expanded(
+                child: ListView(
+                children: _getOwnedAndInvitedExpansionTiles(),
+              ))
+            : const Expanded(
+                child: Center(child: CircularProgressIndicator()),
+              ),
       ]),
       floatingActionButton: FloatingActionButton(
         onPressed: _addAppt,
@@ -104,7 +119,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   hint: Text(
                     "Choose a user",
                     style:
-                        TextStyle(fontSize: SizeConfig.blockSizeHorizontal * 4),
+                        TextStyle(fontSize: SizeConfig.blockSizeHorizontal * 3),
                   ),
                   style: TextStyle(
                       color: Colors.deepPurple,
@@ -135,7 +150,25 @@ class _MyHomePageState extends State<MyHomePage> {
                       icon: Center(
                         child: Icon(
                           Icons.add,
-                          size: SizeConfig.blockSizeHorizontal * 3,
+                          size: SizeConfig.blockSizeVertical * 3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Text(
+                      'Edit user',
+                      style: TextStyle(
+                          fontSize: SizeConfig.blockSizeHorizontal * 3),
+                    ),
+                    IconButton(
+                      onPressed: _editUser,
+                      icon: Center(
+                        child: Icon(
+                          Icons.edit,
+                          size: SizeConfig.blockSizeVertical * 3,
                         ),
                       ),
                     ),
@@ -150,11 +183,15 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _getUserAppts() async {
-    var apptResult = await CloudSync().getAllUserAppts(_currentUser!.email);
-    _appts.clear();
+    var apptResult = await CloudSync().getAllUserAppts(_currentUser!);
+    _ownedAppts.clear();
+    _invitedAppts.clear();
     if (apptResult.success) {
-      _appts = List<Appointment>.from(
-          apptResult.data!['items'].map((x) => Appointment.fromJson(x)));
+      _ownedAppts = List<Appointment>.from(apptResult.data!['items']['owned']
+          .map((x) => Appointment.fromJson(x)));
+      _invitedAppts = List<Appointment>.from(apptResult.data!['items']
+              ['invited']
+          .map((x) => Appointment.fromJson(x)));
     }
     setState(() {});
   }
@@ -171,136 +208,172 @@ class _MyHomePageState extends State<MyHomePage> {
     }).toList();
   }
 
-  List<Widget> _getApptWidgets() {
+  List<Widget> _getOwnedAndInvitedExpansionTiles() {
+    var ownedTiles = _getApptWidgets(_ownedAppts, true);
+    var invitedTiles = _getApptWidgets(_invitedAppts, false);
+    var expandeds = [
+      ExpansionTile(
+          title: Text(
+            "Owned Appointments",
+            style: TextStyle(fontSize: SizeConfig.blockSizeHorizontal * 3),
+          ),
+          initiallyExpanded: true,
+          children: ownedTiles),
+      ExpansionTile(
+          title: Text(
+            "Invited Appointments",
+            style: TextStyle(fontSize: SizeConfig.blockSizeHorizontal * 3),
+          ),
+          initiallyExpanded: true,
+          children: invitedTiles),
+    ];
+
+    return expandeds;
+  }
+
+  List<Widget> _getApptWidgets(List<Appointment> appts, bool areOwned) {
     List<Widget> tiles = [];
 
-    for (var appt in _appts) {
-      var dt = formatIsoDateTime(
-          appt.dateTimeField.datetime, appt.dateTimeField.aMpM);
-      var loc = appt.location;
-      var guests = Center(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: appt.guests.isNotEmpty
-              ? appt.guests
-                  .map((e) => Text(
-                        e,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: SizeConfig.blockSizeHorizontal * 3),
-                      ))
-                  .toList()
-              : [
-                  Text(
-                    "No Guests",
-                    style:
-                        TextStyle(fontSize: SizeConfig.blockSizeHorizontal * 3),
-                  )
-                ],
-        ),
-      );
-
-      var tile = Dismissible(
-        key: ValueKey(appt.primaryKey),
-        confirmDismiss: (direction) async {
-          final bool res = await showDialog(
-            context: context,
-            builder: (BuildContext localContext) {
-              return AlertDialog(
-                title: Text(
-                  "Confirm",
-                  style:
-                      TextStyle(fontSize: SizeConfig.blockSizeHorizontal * 3),
-                ),
-                content: Text(
-                  "Are you sure you wish to delete this appointment?",
-                  style:
-                      TextStyle(fontSize: SizeConfig.blockSizeHorizontal * 3),
-                ),
-                actions: <Widget>[
-                  TextButton(
-                      onPressed: () => {
-                            CloudSync().deleteAppt(appt).then((result) {
-                              if (result.success) {
-                                _showDeleteSuccessSnackBar(appt);
-                                Navigator.of(context).pop(true);
-                              } else {
-                                _showDeleteFailureSnackBar(result.status);
-                                Navigator.of(context).pop(false);
-                              }
-                            })
-                          },
-                      child: Text(
-                        "DELETE",
-                        style: TextStyle(
-                            fontSize: SizeConfig.blockSizeHorizontal * 3),
-                      )),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: Text(
-                      "CANCEL",
+    for (var appt in appts) {
+      var isEditable = areOwned;
+      Widget tile;
+      if (areOwned) {
+        tile = Dismissible(
+            key: ValueKey(appt.primaryKey),
+            confirmDismiss: (direction) async {
+              final bool res = await showDialog(
+                context: context,
+                builder: (BuildContext localContext) {
+                  return AlertDialog(
+                    title: Text(
+                      "Confirm",
                       style: TextStyle(
                           fontSize: SizeConfig.blockSizeHorizontal * 3),
                     ),
-                  ),
-                ],
+                    content: Text(
+                      "Are you sure you wish to delete this appointment?",
+                      style: TextStyle(
+                          fontSize: SizeConfig.blockSizeHorizontal * 3),
+                    ),
+                    actions: <Widget>[
+                      TextButton(
+                          onPressed: () => {
+                                CloudSync().deleteAppt(appt).then((result) {
+                                  if (result.success) {
+                                    _showDeleteSuccessSnackBar(appt);
+                                    Navigator.of(context).pop(true);
+                                  } else {
+                                    _showDeleteFailureSnackBar(result.status);
+                                    Navigator.of(context).pop(false);
+                                  }
+                                })
+                              },
+                          child: Text(
+                            "DELETE",
+                            style: TextStyle(
+                                fontSize: SizeConfig.blockSizeHorizontal * 3),
+                          )),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: Text(
+                          "CANCEL",
+                          style: TextStyle(
+                              fontSize: SizeConfig.blockSizeHorizontal * 3),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               );
+              return res;
             },
-          );
-          return res;
-        },
-        onDismissed: (direction) async {
-          _appts.remove(appt);
-          setState(() {});
-        },
-        // Show a red background as the item is swiped away.
-        background: Container(color: Colors.red),
-        child: GestureDetector(
-          onTap: () => _editAppt(appt),
-          child: Padding(
-            padding: EdgeInsets.all(SizeConfig.blockSizeHorizontal),
-            child: Card(
-                child: Padding(
-              padding: EdgeInsets.all(SizeConfig.blockSizeHorizontal),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      appt.name,
+            onDismissed: (direction) async {
+              _ownedAppts.remove(appt);
+              setState(() {});
+            },
+            // Show a red background as the item is swiped away.
+            background: Container(color: Colors.red),
+            child: _getApptGestureDetector(appt, isEditable));
+        tiles.add(tile);
+      } else {
+        tile = _getApptGestureDetector(appt, isEditable);
+        tiles.add(tile);
+      }
+    }
+
+    return tiles;
+  }
+
+  _getApptGestureDetector(Appointment appt, bool isEditable) {
+    var dt =
+        formatIsoDateTime(appt.dateTimeField.datetime, appt.dateTimeField.aMpM);
+    var loc = appt.location;
+    var guests = Center(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: appt.guests.isNotEmpty
+            ? appt.guests
+                .map((e) => Text(
+                      e,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: SizeConfig.blockSizeHorizontal * 3),
-                    ),
+                    ))
+                .toList()
+            : [
+                Text(
+                  "No Guests",
+                  style:
+                      TextStyle(fontSize: SizeConfig.blockSizeHorizontal * 3),
+                )
+              ],
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: GestureDetector(
+        onTap: () => _editAppt(appt, isEditable),
+        child: Padding(
+          padding: EdgeInsets.all(SizeConfig.blockSizeHorizontal),
+          child: Card(
+              child: Padding(
+            padding: EdgeInsets.all(SizeConfig.blockSizeHorizontal),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    appt.name,
+                    textAlign: TextAlign.center,
+                    style:
+                        TextStyle(fontSize: SizeConfig.blockSizeHorizontal * 3),
                   ),
-                  Expanded(
-                      flex: 6,
-                      child: Column(
-                        children: [
-                          Text(
-                            dt,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                fontSize: SizeConfig.blockSizeHorizontal * 3),
-                          ),
-                          Text(
-                            loc,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                fontSize: SizeConfig.blockSizeHorizontal * 3),
-                          )
-                        ],
-                      )),
-                  Expanded(flex: 4, child: guests),
-                ],
-              ),
-            )),
-          ),
+                ),
+                Expanded(
+                    flex: 6,
+                    child: Column(
+                      children: [
+                        Text(
+                          dt,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: SizeConfig.blockSizeHorizontal * 3),
+                        ),
+                        Text(
+                          loc,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: SizeConfig.blockSizeHorizontal * 3),
+                        )
+                      ],
+                    )),
+                Expanded(flex: 4, child: guests),
+              ],
+            ),
+          )),
         ),
-      );
-      tiles.add(tile);
-    }
-    return tiles;
+      ),
+    );
   }
 
   _showDeleteSuccessSnackBar(
@@ -321,7 +394,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
     var result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => EditUserRoute(user: newUser)),
+      MaterialPageRoute(
+          builder: (context) => EditUserRoute(
+                user: newUser,
+                isEditable: true,
+              )),
     );
 
     if (result != null && result.email.isNotEmpty && result.name.isNotEmpty) {
@@ -330,6 +407,26 @@ class _MyHomePageState extends State<MyHomePage> {
         _users.add(newUser);
         _currentUser = newUser;
         await _getUserAppts();
+        setState(() {});
+      }
+    }
+  }
+
+  _editUser() async {
+    if (_currentUser == null) return;
+
+    var result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (context) => EditUserRoute(
+                user: _currentUser!,
+                isEditable: false,
+              )),
+    );
+
+    if (result != null && result.email.isNotEmpty && result.name.isNotEmpty) {
+      var cloudResult = await CloudSync().createOrUpdateUser(_currentUser!);
+      if (cloudResult.success) {
         setState(() {});
       }
     }
@@ -350,6 +447,7 @@ class _MyHomePageState extends State<MyHomePage> {
           builder: (context) => EditAppointmentRoute(
                 appt: newAppt,
                 usersWhoCanBeGuests: possibleGuests,
+                isEditable: true,
               )),
     );
 
@@ -359,15 +457,17 @@ class _MyHomePageState extends State<MyHomePage> {
       var cloudResult = await CloudSync().createOrUpdateAppt(newAppt);
       if (cloudResult.success) {
         setState(() {
-          _appts.add(newAppt);
+          _ownedAppts.add(newAppt);
         });
       }
     }
   }
 
-  _editAppt(Appointment appt) async {
+  // isEditable chooses whether all appt fields can be changed (true)
+  // or if only the guests choices can change (false)
+  _editAppt(Appointment appt, bool isEditable) async {
     List<String> possibleGuests = _users.map((e) => e.name).toList();
-    possibleGuests.remove(_currentUser!.name);
+    if (isEditable) possibleGuests.remove(_currentUser!.name);
 
     var result = await Navigator.push(
       context,
@@ -375,6 +475,7 @@ class _MyHomePageState extends State<MyHomePage> {
           builder: (context) => EditAppointmentRoute(
                 appt: appt,
                 usersWhoCanBeGuests: possibleGuests,
+                isEditable: isEditable,
               )),
     );
 

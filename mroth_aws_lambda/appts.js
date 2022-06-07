@@ -7,8 +7,10 @@ module.exports.getAllUserAppts = async (event) => {
 
   const body = JSON.parse(event.body); //JSON.parse(Buffer.from(event.body, 'base64').toString())
   const userId = body.email;
+  const userName = body.name;
 
-  const params = {
+  // get all appts that user has created
+  const ownedParams = {
     TableName: APPTS_TABLE,
     FilterExpression: '#userId = :userId',
     ExpressionAttributeNames: {
@@ -19,10 +21,19 @@ module.exports.getAllUserAppts = async (event) => {
     },
   };
 
+  const invitedParams = {
+    TableName: APPTS_TABLE,
+    FilterExpression: "contains (guests, :guest)",
+    ExpressionAttributeValues: {
+      ':guest': userName,
+    }
+  }
 
   try {
-    const result = await dynamoDbClient.scan(params).promise();
-    if (result.Count === 0) {
+    const ownedResult = await dynamoDbClient.scan(ownedParams).promise();
+    const invitedResult = await dynamoDbClient.scan(invitedParams).promise();
+
+    if (ownedResult.Count === 0 && invitedResult.Count === 0) {
       return {
         statusCode: 404,
         body: JSON.stringify({
@@ -31,20 +42,37 @@ module.exports.getAllUserAppts = async (event) => {
       };
     }
 
+    var ownedAppts = await ownedResult.Items.map(appt => {
+      return {
+        primaryKey: appt.primaryKey,
+        userId: appt.userId,
+        name: appt.name,
+        dateTimeField: appt.dateTimeField,
+        location: appt.location,
+        guests: appt.guests
+      }
+    });
+
+    var invitedAppts = await invitedResult.Items.map(appt => {
+      return {
+        primaryKey: appt.primaryKey,
+        userId: appt.userId,
+        name: appt.name,
+        dateTimeField: appt.dateTimeField,
+        location: appt.location,
+        guests: appt.guests
+      }
+    })
+
     return {
       statusCode: 200,
       body: JSON.stringify({
-        total: result.Count,
-        items: await result.Items.map(appt => {
-          return {
-            primaryKey: appt.primaryKey,
-            userId: appt.userId,
-            name: appt.name,
-            dateTimeField: appt.dateTimeField,
-            location: appt.location,
-            guests: appt.guests
-          }
-        })
+        totalOwned: ownedResult.Count,
+        totalInvited: invitedResult.Count,
+        items: {
+          owned: ownedAppts,
+          invited: invitedAppts,
+        }
       })
     }
 
@@ -57,40 +85,6 @@ module.exports.getAllUserAppts = async (event) => {
     };
   }
 };
-
-
-// module.exports.createOrUpdateAppt = async (event) => {
-//   const body = JSON.parse(event.body); //JSON.parse(Buffer.from(event.body, 'base64').toString())
-
-//   const item = {
-//     primary_key: body.dataId,
-//     userId: body.userId,
-//     name: body.name,
-//     datetime: body.datetime,
-//     location: body.location,
-//     guests: body.guests,
-//   };
-//   console.log(item);
-
-//   const params = {
-//     TableName: APPTS_TABLE,
-//     Item: item,
-//   };
-
-//   try {
-//     await dynamoDbClient.put(params).promise();
-//     return {
-//       statusCode: 200,
-//       body: JSON.stringify(body),
-//     };
-//   } catch (error) {
-//     console.log(error);
-//     return {
-//       statusCode: 500,
-//       error: "Could not create appointment"
-//     };
-//   }
-// };
 
 module.exports.createOrUpdateAppt = async (event) => {
   const body = JSON.parse(event.body); //JSON.parse(Buffer.from(event.body, 'base64').toString())

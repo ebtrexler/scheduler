@@ -1,12 +1,18 @@
+import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mroth_flutter_app/models/user.dart';
 import 'package:mroth_flutter_app/editors/text_field_editor.dart';
 import 'package:mroth_flutter_app/utils/size_config.dart';
 
 class EditUserRoute extends StatefulWidget {
   final User user;
+  final bool isEditable; // false when editing user because email can' change
 
-  const EditUserRoute({required this.user, Key? key}) : super(key: key);
+  const EditUserRoute({required this.user, required this.isEditable, Key? key})
+      : super(key: key);
 
   @override
   State<EditUserRoute> createState() => _EditUserRouteState();
@@ -14,6 +20,9 @@ class EditUserRoute extends StatefulWidget {
 
 class _EditUserRouteState extends State<EditUserRoute>
     implements TextFieldChangedListener {
+  final ImagePicker _picker = ImagePicker();
+
+  Image? img;
   @override
   Widget build(BuildContext context) {
     SizeConfig().init(context);
@@ -43,6 +52,7 @@ class _EditUserRouteState extends State<EditUserRoute>
               child: TextFieldEditor(
                 editString: widget.user.email,
                 editKey: "email",
+                isEditable: widget.isEditable,
                 labelText: "Email",
                 keyboardType: TextInputType.emailAddress,
                 listener: this,
@@ -53,11 +63,34 @@ class _EditUserRouteState extends State<EditUserRoute>
               child: TextFieldEditor(
                 editString: widget.user.name,
                 editKey: "name",
+                isEditable: true,
                 labelText: "Name",
                 keyboardType: TextInputType.name,
                 listener: this,
               ),
             ),
+            ElevatedButton(
+              onPressed: () async {
+                final XFile? imgFile = await _picker.pickImage(
+                  source: ImageSource.gallery,
+                  maxHeight: 200.0,
+                  maxWidth: 200.0,
+                );
+                if (imgFile != null) {
+                  widget.user.imageBase64 = const Base64Encoder()
+                      .convert(File(imgFile.path).readAsBytesSync());
+                }
+                setState(() {});
+              },
+              child: Text(
+                "Add/Change Image",
+                style: TextStyle(fontSize: SizeConfig.blockSizeHorizontal * 4),
+              ),
+            ),
+            (widget.user.imageBase64 != null)
+                ? Image.memory(
+                    const Base64Decoder().convert(widget.user.imageBase64!))
+                : Container(),
           ]),
         ));
   }
@@ -74,61 +107,3 @@ class _EditUserRouteState extends State<EditUserRoute>
     }
   }
 }
-
-
-/* 
-ListView(
-              children: [
-                Card(
-                    child: ListTile(
-                  leading: const Text("Email: "),
-                  title: TextField(
-                    controller: TextEditingController()
-                      ..text = widget.user.email,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(5.0)),
-                        borderSide: BorderSide(color: Colors.grey),
-                        gapPadding: 10.0,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(5.0)),
-                        borderSide: BorderSide(color: Colors.green),
-                        gapPadding: 10.0,
-                      ),
-                      labelText: "Email: ",
-                      contentPadding: EdgeInsets.all(20.0),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    onChanged: (value) {
-                      widget.user.email = value;
-                    },
-                  ),
-                )),
-                Card(
-                    child: ListTile(
-                  leading: const Text("Name: "),
-                  title: TextField(
-                    controller: TextEditingController()
-                      ..text = widget.user.name,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(5.0)),
-                        borderSide: BorderSide(color: Colors.grey),
-                        gapPadding: 10.0,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(5.0)),
-                        borderSide: BorderSide(color: Colors.green),
-                        gapPadding: 10.0,
-                      ),
-                      labelText: "Name: ",
-                      contentPadding: EdgeInsets.all(20.0),
-                    ),
-                    keyboardType: TextInputType.name,
-                    onChanged: (value) {
-                      widget.user.name = value;
-                    },
-                  ),
-                )),
-*/

@@ -10,12 +10,14 @@ class TextFieldEditor extends StatefulWidget {
   final String editKey;
   final String labelText;
   final TextInputType keyboardType;
+  final bool isEditable;
   final TextFieldChangedListener? listener;
   const TextFieldEditor(
       {required this.editString,
       required this.editKey,
       required this.labelText,
       required this.keyboardType,
+      required this.isEditable,
       this.listener,
       Key? key})
       : super(key: key);
@@ -49,6 +51,7 @@ class _TextFieldEditorState extends State<TextFieldEditor> {
           child: Padding(
             padding: EdgeInsets.all(SizeConfig.blockSizeHorizontal),
             child: TextField(
+              enabled: widget.isEditable,
               controller: TextEditingController()..text = widget.editString,
               decoration: InputDecoration(
                 border: const OutlineInputBorder(

@@ -11,11 +11,13 @@ class DateTimeEditor extends StatefulWidget {
   final DateTimeField dateTime;
   final String label;
   final String editKey;
+  final bool isEditable;
   final DateTimeChangeListener? listener;
   const DateTimeEditor(
       {required this.dateTime,
       required this.label,
       required this.editKey,
+      required this.isEditable,
       this.listener,
       Key? key})
       : super(key: key);
@@ -42,6 +44,8 @@ class _DateTimeEditorState extends State<DateTimeEditor> {
   }
 
   void _datePicker(BuildContext context) async {
+    if (!widget.isEditable) return;
+
     DateTime initial = fieldDateTime ?? DateTime.now();
     DateTime first = DateTime(DateTime.now().year - 5);
     DateTime last = DateTime(DateTime.now().year + 5);
@@ -59,6 +63,8 @@ class _DateTimeEditorState extends State<DateTimeEditor> {
   }
 
   void _timePicker(BuildContext context) async {
+    if (!widget.isEditable) return;
+
     DateTime initial = fieldDateTime ?? DateTime.now();
 
     TimeOfDay? t = await showTimePicker(
@@ -108,9 +114,11 @@ class _DateTimeEditorState extends State<DateTimeEditor> {
             size: SizeConfig.blockSizeHorizontal * 4,
           ),
           onPressed: () {
-            setState(() {
-              widget.dateTime.aMpM = !widget.dateTime.aMpM;
-            });
+            if (widget.isEditable) {
+              setState(() {
+                widget.dateTime.aMpM = !widget.dateTime.aMpM;
+              });
+            }
           },
         ),
       ),

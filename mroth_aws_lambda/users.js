@@ -8,6 +8,11 @@ const dynamoDbClient = new AWS.DynamoDB.DocumentClient();
 module.exports.getUser = async (event) => {
 
   const body = JSON.parse(event.body);
+
+  if (!body.hasOwnProperty("imageBase64")) {
+    body.imageBase64 = null;
+  }
+
   const params = {
     TableName: USERS_TABLE,
     Key: {
@@ -26,6 +31,7 @@ module.exports.getUser = async (event) => {
         body: JSON.stringify({
           email: Item.email,
           name: Item.name,
+          imageBase64: Item.imageBase64,
         })
       };
     } else {
@@ -68,9 +74,13 @@ module.exports.getAllUsers = async (event) => {
     body: JSON.stringify({
       total: result.Count,
       items: await result.Items.map(user => {
+        if (!user.hasOwnProperty("imageBase64")) {
+          user.imageBase64 = null;
+        }
         return {
           email: user.email,
-          name: user.name
+          name: user.name,
+          imageBase64: user.imageBase64,
         }
       })
     })
@@ -81,11 +91,15 @@ module.exports.createOrUpdateUser = async (event) => {
 
   const body = JSON.parse(event.body); //JSON.parse(Buffer.from(event.body, 'base64').toString())
 
+  if (!body.hasOwnProperty("imageBase64")) {
+    body.imageBase64 = null;
+  }
   const item = {
     email: body.email,
     name: body.name,
+    imageBase64: body.imageBase64,
   };
-  console.log(item);
+  // console.log(item);
 
   const params = {
     TableName: USERS_TABLE,
@@ -99,6 +113,7 @@ module.exports.createOrUpdateUser = async (event) => {
       body: JSON.stringify({
         email: item.email,
         name: item.name,
+        imageBase64: item.imageBase64,
       })
     };
   } catch (error) {

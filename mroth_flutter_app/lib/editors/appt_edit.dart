@@ -10,8 +10,12 @@ import 'package:mroth_flutter_app/utils/size_config.dart';
 class EditAppointmentRoute extends StatefulWidget {
   Appointment appt;
   List<String> usersWhoCanBeGuests;
+  bool isEditable;
   EditAppointmentRoute(
-      {required this.appt, required this.usersWhoCanBeGuests, Key? key})
+      {required this.appt,
+      required this.usersWhoCanBeGuests,
+      required this.isEditable,
+      Key? key})
       : super(key: key);
 
   @override
@@ -55,10 +59,12 @@ class _EditAppointmentState extends State<EditAppointmentRoute>
         editString: widget.appt.name,
         editKey: "name",
         labelText: "Name",
+        isEditable: widget.isEditable,
         keyboardType: TextInputType.name,
         listener: this));
     cards.add(DateTimeEditor(
         dateTime: widget.appt.dateTimeField,
+        isEditable: widget.isEditable,
         editKey: "datetime",
         label: "Date/Time",
         listener: this));
@@ -66,6 +72,7 @@ class _EditAppointmentState extends State<EditAppointmentRoute>
         editString: widget.appt.location,
         editKey: "location",
         labelText: "Location",
+        isEditable: widget.isEditable,
         keyboardType: TextInputType.streetAddress,
         listener: this));
     cards.add(ChoiceFieldEditor(
@@ -80,6 +87,7 @@ class _EditAppointmentState extends State<EditAppointmentRoute>
 
   @override
   onTextFieldChanged(String newValue, String editKey) {
+    if (!widget.isEditable) return;
     switch (editKey) {
       case "name":
         widget.appt.name = newValue;
@@ -100,6 +108,7 @@ class _EditAppointmentState extends State<EditAppointmentRoute>
 
   @override
   onDateTimeChanged(DateTimeField field, String editKey) {
+    if (!widget.isEditable) return;
     if (editKey == "datetime") {
       widget.appt.dateTimeField =
           DateTimeField(datetime: field.datetime, aMpM: field.aMpM);

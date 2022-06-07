@@ -1,20 +1,11 @@
-// import 'dart:convert';
 import 'dart:async';
 import 'dart:convert';
-// import 'package:flutter/foundation.dart';
 
 import 'package:http/http.dart' as http;
-// import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-// import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity/connectivity.dart';
 import 'package:mroth_flutter_app/models/appointment.dart';
 import 'package:mroth_flutter_app/models/user.dart';
 import 'package:mroth_flutter_app/utils/code_gen.dart';
-// import 'package:path/path.dart' as p;
-// import 'package:path_provider/path_provider.dart';
-// import 'package:sembast/sembast.dart';
-// import 'package:sembast/sembast_io.dart';
-// import 'package:intl/intl.dart';
 
 const String serverlessId = '27h3qylvhk';
 const String urlBase =
@@ -109,8 +100,8 @@ class CloudSync {
     return result;
   }
 
-  Future<CloudResult> getAllUserAppts(String email) async {
-    var body = {"email": email};
+  Future<CloudResult> getAllUserAppts(User user) async {
+    var body = {"email": user.email, "name": user.name};
     return _postRequest(urlToGetAllUserAppts, body);
   }
 
